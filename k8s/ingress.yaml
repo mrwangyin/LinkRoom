@@ -1,0 +1,44 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: linkroom
+  namespace: linkroom
+  labels:
+    app.kubernetes.io/name: linkroom
+  annotations:
+    # ---- Nginx Ingress Controller ----
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # WebSocket 支持
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+    # 上传文件大小限制 100MB
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    # Socket.IO sticky session（多副本时必需）
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/session-cookie-name: "linkroom-affinity"
+    nginx.ingress.kubernetes.io/session-cookie-hash: "sha1"
+    nginx.ingress.kubernetes.io/session-cookie-max-age: "3600"
+    # ---- 如需 HTTPS，取消下面注释 ----
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  # ---- 如需 HTTPS，取消下面 tls 段注释 ----
+  # tls:
+  #   - hosts:
+  #       - linkroom.example.com
+  #     secretName: linkroom-tls
+  rules:
+    # ⬇️ 替换为你的实际域名
+    - host: linkroom.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: linkroom
+                port:
+                  name: http

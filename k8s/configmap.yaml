@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: linkroom-config
+  namespace: linkroom
+  labels:
+    app.kubernetes.io/name: linkroom
+data:
+  NODE_ENV: "production"
+  PORT: "3000"

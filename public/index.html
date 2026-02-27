@@ -1,0 +1,1915 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>LinkRoom - 跨设备共享工作空间</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔗</text></svg>">
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0f0f1a;
+      --bg-secondary: #1a1a2e;
+      --bg-tertiary: #16213e;
+      --bg-card: #1e1e36;
+      --accent: #6c63ff;
+      --accent-light: #8b83ff;
+      --accent-dark: #4a42d4;
+      --text-primary: #e8e8f0;
+      --text-secondary: #a0a0b8;
+      --text-muted: #6b6b80;
+      --border: #2a2a45;
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --info: #60a5fa;
+      --shadow: rgba(0, 0, 0, 0.3);
+      --radius: 16px;
+      --radius-sm: 10px;
+      --radius-xs: 6px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow: hidden;
+    }
+
+    /* ====== Animations ====== */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes bounceIn {
+      0% { transform: scale(0.3); opacity: 0; }
+      50% { transform: scale(1.05); }
+      70% { transform: scale(0.9); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .animate-fade { animation: fadeIn 0.4s ease; }
+    .animate-slide { animation: slideUp 0.5s ease; }
+    .animate-scale { animation: scaleIn 0.3s ease; }
+
+    /* ====== App Layout ====== */
+    #app {
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ====== Welcome Screen ====== */
+    .welcome-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding: 24px;
+      background: radial-gradient(ellipse at top, #1a1a3e 0%, var(--bg-primary) 70%);
+    }
+
+    .welcome-logo {
+      font-size: 64px;
+      margin-bottom: 16px;
+      animation: bounceIn 0.8s ease;
+    }
+
+    .welcome-title {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, var(--accent-light), #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .welcome-subtitle {
+      font-size: 15px;
+      color: var(--text-secondary);
+      margin-bottom: 48px;
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .welcome-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .device-name-input {
+      width: 100%;
+      padding: 14px 18px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      font-size: 15px;
+      outline: none;
+      transition: all 0.2s;
+      margin-bottom: 8px;
+    }
+
+    .device-name-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.15);
+    }
+
+    .btn {
+      padding: 14px 24px;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: white;
+      box-shadow: 0 4px 15px rgba(108, 99, 255, 0.3);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(108, 99, 255, 0.4);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1.5px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-card);
+      border-color: var(--accent);
+    }
+
+    .btn-icon {
+      font-size: 20px;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ====== Join Dialog ====== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 24px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .modal {
+      background: var(--bg-secondary);
+      border-radius: var(--radius);
+      padding: 32px;
+      width: 100%;
+      max-width: 400px;
+      border: 1px solid var(--border);
+      animation: scaleIn 0.3s ease;
+    }
+
+    .modal h2 {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+
+    .modal p {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+
+    .code-input-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .code-input {
+      flex: 1;
+      padding: 16px;
+      font-size: 24px;
+      font-weight: 700;
+      text-align: center;
+      letter-spacing: 8px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .code-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.15);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .modal-actions .btn {
+      flex: 1;
+    }
+
+    /* ====== Room Screen ====== */
+    .room-screen {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh;
+    }
+
+    /* Header */
+    .room-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .room-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .room-name {
+      font-size: 17px;
+      font-weight: 600;
+    }
+
+    .room-code-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(108, 99, 255, 0.15);
+      border-radius: 20px;
+      font-size: 13px;
+      color: var(--accent-light);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .room-code-badge:hover {
+      background: rgba(108, 99, 255, 0.25);
+    }
+
+    .room-header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-xs);
+      border: 1px solid var(--border);
+      background: var(--bg-primary);
+      color: var(--text-secondary);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .header-btn:hover {
+      color: var(--text-primary);
+      border-color: var(--accent);
+    }
+
+    /* Sidebar / Device Panel */
+    .room-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .device-panel {
+      width: 260px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      transition: transform 0.3s ease;
+    }
+
+    .device-panel-header {
+      padding: 16px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .device-count {
+      background: var(--accent);
+      color: white;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+
+    .device-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .device-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      transition: background 0.2s;
+      animation: slideInRight 0.3s ease;
+    }
+
+    .device-item:hover {
+      background: var(--bg-primary);
+    }
+
+    .device-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .device-icon.ios { background: rgba(96, 165, 250, 0.15); }
+    .device-icon.android { background: rgba(74, 222, 128, 0.15); }
+    .device-icon.macos { background: rgba(168, 85, 247, 0.15); }
+    .device-icon.windows { background: rgba(251, 191, 36, 0.15); }
+    .device-icon.linux { background: rgba(248, 113, 113, 0.15); }
+    .device-icon.unknown { background: rgba(160, 160, 184, 0.15); }
+
+    .device-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .device-name-label {
+      font-size: 14px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .device-os {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .device-status {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      flex-shrink: 0;
+      box-shadow: 0 0 6px rgba(74, 222, 128, 0.5);
+    }
+
+    /* QR Code Panel */
+    .qr-panel {
+      padding: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .qr-panel-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .qr-code {
+      display: flex;
+      justify-content: center;
+    }
+
+    .qr-code img {
+      width: 140px;
+      height: 140px;
+      border-radius: var(--radius-sm);
+      border: 2px solid var(--border);
+    }
+
+    /* Main Content / Chat Area */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .messages-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      scroll-behavior: smooth;
+    }
+
+    .messages-area::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .messages-area::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .messages-area::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    /* Messages */
+    .message {
+      animation: fadeIn 0.3s ease;
+      max-width: 85%;
+    }
+
+    .message-self {
+      align-self: flex-end;
+    }
+
+    .message-other {
+      align-self: flex-start;
+    }
+
+    .message-system {
+      align-self: center;
+      padding: 6px 16px;
+      background: var(--bg-tertiary);
+      border-radius: 20px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .message-bubble {
+      padding: 12px 16px;
+      border-radius: 18px;
+      position: relative;
+    }
+
+    .message-self .message-bubble {
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: white;
+      border-bottom-right-radius: 6px;
+    }
+
+    .message-other .message-bubble {
+      background: var(--bg-card);
+      border-bottom-left-radius: 6px;
+    }
+
+    .message-sender {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      opacity: 0.8;
+    }
+
+    .message-self .message-sender {
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .message-other .message-sender {
+      color: var(--accent-light);
+    }
+
+    .message-text {
+      font-size: 15px;
+      line-height: 1.5;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .message-time {
+      font-size: 11px;
+      margin-top: 4px;
+      opacity: 0.6;
+    }
+
+    .message-self .message-time {
+      text-align: right;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .message-other .message-time {
+      color: var(--text-muted);
+    }
+
+    /* Clipboard message */
+    .clipboard-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      padding: 2px 8px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      margin-bottom: 6px;
+    }
+
+    .message-other .clipboard-badge {
+      background: rgba(108, 99, 255, 0.15);
+      color: var(--accent-light);
+    }
+
+    /* File message */
+    .file-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 0.2s;
+      min-width: 240px;
+    }
+
+    .message-other .file-card {
+      background: rgba(0, 0, 0, 0.1);
+    }
+
+    .file-card:hover {
+      background: rgba(0, 0, 0, 0.25);
+    }
+
+    .file-icon-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .message-self .file-icon-box {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .message-other .file-icon-box {
+      background: rgba(108, 99, 255, 0.15);
+    }
+
+    .file-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .file-name {
+      font-size: 14px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-size {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-top: 2px;
+    }
+
+    .file-download-icon {
+      font-size: 20px;
+      opacity: 0.7;
+    }
+
+    /* Image thumbnail in chat */
+    .image-preview-wrapper {
+      position: relative;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      cursor: pointer;
+      max-width: 280px;
+      margin-top: 4px;
+    }
+
+    .image-thumbnail {
+      display: block;
+      width: 100%;
+      max-height: 240px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+      transition: transform 0.2s, filter 0.2s;
+    }
+
+    .image-preview-wrapper:hover .image-thumbnail {
+      transform: scale(1.02);
+      filter: brightness(0.85);
+    }
+
+    .image-preview-wrapper:hover .image-zoom-hint {
+      opacity: 1;
+    }
+
+    .image-zoom-hint {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
+    }
+
+    .image-zoom-hint span {
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      backdrop-filter: blur(4px);
+    }
+
+    .image-file-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 4px 0;
+      font-size: 12px;
+      opacity: 0.7;
+    }
+
+    .image-file-info a {
+      color: inherit;
+      text-decoration: none;
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
+
+    .image-file-info a:hover {
+      opacity: 1;
+    }
+
+    /* Lightbox for viewing full image */
+    .lightbox-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.9);
+      backdrop-filter: blur(12px);
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.2s ease;
+      cursor: zoom-out;
+    }
+
+    .lightbox-image-container {
+      position: relative;
+      max-width: 92vw;
+      max-height: 80vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .lightbox-image {
+      max-width: 92vw;
+      max-height: 80vh;
+      object-fit: contain;
+      border-radius: 8px;
+      animation: scaleIn 0.3s ease;
+      cursor: default;
+    }
+
+    .lightbox-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 20px;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .lightbox-btn {
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+
+    .lightbox-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.35);
+    }
+
+    .lightbox-close {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      font-size: 22px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      z-index: 301;
+    }
+
+    .lightbox-close:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .lightbox-filename {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+      margin-top: 12px;
+      text-align: center;
+    }
+
+    /* Copy button on messages */
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: none;
+      background: rgba(0, 0, 0, 0.2);
+      color: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      opacity: 0.7;
+    }
+
+    .message-bubble:hover .copy-btn {
+      display: flex;
+    }
+
+    .copy-btn:hover {
+      opacity: 1;
+      background: rgba(0, 0, 0, 0.35);
+    }
+
+    /* Input Area */
+    .input-area {
+      padding: 12px 20px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .input-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+    }
+
+    .input-actions {
+      display: flex;
+      gap: 4px;
+      padding-bottom: 6px;
+    }
+
+    .input-action-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-xs);
+      border: 1px solid var(--border);
+      background: var(--bg-primary);
+      color: var(--text-secondary);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .input-action-btn:hover {
+      color: var(--accent-light);
+      border-color: var(--accent);
+    }
+
+    .text-input-wrapper {
+      flex: 1;
+      position: relative;
+    }
+
+    .text-input {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: 15px;
+      outline: none;
+      resize: none;
+      min-height: 44px;
+      max-height: 120px;
+      line-height: 1.4;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .text-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.1);
+    }
+
+    .text-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .send-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .send-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(108, 99, 255, 0.4);
+    }
+
+    .send-btn:active {
+      transform: translateY(0);
+    }
+
+    .send-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Upload progress */
+    .upload-progress {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-sm);
+      margin-bottom: 10px;
+    }
+
+    .upload-progress.active {
+      display: flex;
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.3s;
+      width: 0;
+    }
+
+    .progress-text {
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    /* Empty state */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      padding: 40px;
+      text-align: center;
+    }
+
+    .empty-state-icon {
+      font-size: 56px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .empty-state-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .empty-state-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* Toast notifications */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast {
+      padding: 12px 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      color: var(--text-primary);
+      box-shadow: 0 8px 24px var(--shadow);
+      animation: slideInRight 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: 340px;
+    }
+
+    .toast.success { border-left: 3px solid var(--success); }
+    .toast.error { border-left: 3px solid var(--danger); }
+    .toast.info { border-left: 3px solid var(--info); }
+
+    /* Drop zone overlay */
+    .drop-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(108, 99, 255, 0.15);
+      backdrop-filter: blur(4px);
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .drop-overlay.active {
+      display: flex;
+    }
+
+    .drop-zone-content {
+      padding: 40px 60px;
+      border: 3px dashed var(--accent);
+      border-radius: var(--radius);
+      background: var(--bg-secondary);
+      text-align: center;
+    }
+
+    .drop-zone-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    .drop-zone-text {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--accent-light);
+    }
+
+    /* Hidden file input */
+    #fileInput {
+      display: none;
+    }
+
+    /* ====== Responsive ====== */
+    @media (max-width: 768px) {
+      .device-panel {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 30;
+        transform: translateX(-100%);
+        width: 280px;
+        box-shadow: 4px 0 20px var(--shadow);
+      }
+
+      .device-panel.open {
+        transform: translateX(0);
+      }
+
+      .sidebar-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 25;
+        display: none;
+      }
+
+      .sidebar-backdrop.open {
+        display: block;
+      }
+
+      .welcome-title {
+        font-size: 26px;
+      }
+
+      .welcome-subtitle {
+        font-size: 14px;
+      }
+
+      .messages-area {
+        padding: 12px;
+      }
+
+      .input-area {
+        padding: 10px 12px;
+      }
+
+      .room-header {
+        padding: 10px 14px;
+      }
+
+      .message {
+        max-width: 90%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Welcome Screen -->
+    <div id="welcomeScreen" class="welcome-screen">
+      <div class="welcome-logo">🔗</div>
+      <h1 class="welcome-title">LinkRoom</h1>
+      <p class="welcome-subtitle">跨设备实时共享工作空间<br>在 Mac、Windows、iPhone、Android 间自由传输</p>
+      <div class="welcome-actions animate-slide">
+        <input type="text" class="device-name-input" id="deviceNameInput" placeholder="给设备起个名字（如：我的 MacBook）">
+        <button class="btn btn-primary" onclick="showCreateRoom()">
+          <span class="btn-icon">✦</span> 创建工作空间
+        </button>
+        <div class="divider">或</div>
+        <button class="btn btn-secondary" onclick="showJoinDialog()">
+          <span class="btn-icon">→</span> 加入工作空间
+        </button>
+      </div>
+    </div>
+
+    <!-- Room Screen -->
+    <div id="roomScreen" class="room-screen" style="display: none;">
+      <div class="room-header">
+        <div class="room-header-left">
+          <button class="header-btn" id="menuBtn" onclick="toggleSidebar()" title="设备列表">☰</button>
+          <span class="room-name" id="roomNameDisplay"></span>
+          <span class="room-code-badge" id="roomCodeBadge" onclick="copyRoomCode()" title="点击复制邀请码">
+            <span>🔑</span>
+            <span id="roomCodeDisplay"></span>
+          </span>
+        </div>
+        <div class="room-header-right">
+          <button class="header-btn" id="qrBtn" onclick="showQRCode()" title="显示二维码">⊞</button>
+          <button class="header-btn" onclick="leaveRoom()" title="离开空间">✕</button>
+        </div>
+      </div>
+
+      <div class="room-body">
+        <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar()"></div>
+        <div class="device-panel" id="devicePanel">
+          <div class="device-panel-header">
+            <span>在线设备</span>
+            <span class="device-count" id="deviceCount">0</span>
+          </div>
+          <div class="device-list" id="deviceList"></div>
+          <div class="qr-panel" id="qrPanel">
+            <div class="qr-panel-title">扫码加入工作空间</div>
+            <div class="qr-code" id="qrCodeContainer"></div>
+          </div>
+        </div>
+
+        <div class="main-content">
+          <div class="messages-area" id="messagesArea">
+            <div class="empty-state" id="emptyState">
+              <div class="empty-state-icon">💬</div>
+              <div class="empty-state-title">工作空间已就绪</div>
+              <div class="empty-state-desc">发送文本、粘贴剪贴板内容、或拖拽文件到这里<br>所有已连接的设备都能实时收到</div>
+            </div>
+          </div>
+
+          <div class="input-area">
+            <div class="upload-progress" id="uploadProgress">
+              <span>📤</span>
+              <div class="progress-bar">
+                <div class="progress-bar-fill" id="progressBarFill"></div>
+              </div>
+              <span class="progress-text" id="progressText">上传中...</span>
+            </div>
+            <div class="input-row">
+              <div class="input-actions">
+                <button class="input-action-btn" onclick="triggerFileUpload()" title="发送文件">📎</button>
+                <button class="input-action-btn" onclick="sendClipboard()" title="发送剪贴板">📋</button>
+              </div>
+              <div class="text-input-wrapper">
+                <textarea class="text-input" id="textInput" placeholder="输入要分享的内容..." rows="1" onkeydown="handleKeyDown(event)"></textarea>
+              </div>
+              <button class="send-btn" id="sendBtn" onclick="sendText()" title="发送">➤</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drop Zone Overlay -->
+    <div class="drop-overlay" id="dropOverlay">
+      <div class="drop-zone-content">
+        <div class="drop-zone-icon">📁</div>
+        <div class="drop-zone-text">松开以发送文件</div>
+      </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Hidden file input -->
+    <input type="file" id="fileInput" multiple onchange="handleFileSelect(event)">
+  </div>
+
+  <!-- Join Modal (created dynamically) -->
+
+  <script>
+    // ====================================================
+    // State
+    // ====================================================
+    let socket = null;
+    let currentRoom = null;
+    let mySocketId = null;
+    let roomDevices = [];
+    let sidebarOpen = false;
+
+    // ====================================================
+    // Socket.IO connection
+    // ====================================================
+    function connectSocket() {
+      socket = io({
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000
+      });
+
+      socket.on('connect', () => {
+        mySocketId = socket.id;
+        console.log('Connected:', mySocketId);
+      });
+
+      socket.on('new-message', (msg) => {
+        addMessageToUI(msg);
+      });
+
+      socket.on('device-update', (devices) => {
+        roomDevices = devices;
+        updateDeviceList();
+      });
+
+      socket.on('disconnect', () => {
+        showToast('连接已断开，尝试重连中...', 'error');
+      });
+
+      socket.on('reconnect', () => {
+        showToast('已重新连接', 'success');
+      });
+    }
+
+    // ====================================================
+    // Room actions
+    // ====================================================
+    function showCreateRoom() {
+      const deviceName = document.getElementById('deviceNameInput').value.trim();
+      if (!socket) connectSocket();
+
+      // Wait for connection
+      const tryCreate = () => {
+        socket.emit('create-room', {
+          deviceName: deviceName || undefined,
+          roomName: '我的工作空间'
+        }, (response) => {
+          if (response.success) {
+            currentRoom = response.room;
+            roomDevices = response.room.devices;
+            enterRoom();
+            showToast('工作空间已创建', 'success');
+          } else {
+            showToast('创建失败: ' + response.error, 'error');
+          }
+        });
+      };
+
+      if (socket.connected) {
+        tryCreate();
+      } else {
+        socket.on('connect', tryCreate);
+      }
+    }
+
+    function showJoinDialog() {
+      // Check URL params for auto-join code
+      const urlParams = new URLSearchParams(window.location.search);
+      const joinCode = urlParams.get('join') || '';
+
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.id = 'joinModal';
+      overlay.innerHTML = `
+        <div class="modal">
+          <h2>加入工作空间</h2>
+          <p>输入 6 位邀请码加入已有的工作空间</p>
+          <div class="code-input-group">
+            <input type="text" class="code-input" id="joinCodeInput" maxlength="6" placeholder="000000" value="${joinCode}" autofocus>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeJoinDialog()">取消</button>
+            <button class="btn btn-primary" onclick="joinRoom()">加入</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      // Auto-focus and format
+      const input = document.getElementById('joinCodeInput');
+      input.focus();
+      input.addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && input.value.length === 6) joinRoom();
+      });
+    }
+
+    function closeJoinDialog() {
+      const modal = document.getElementById('joinModal');
+      if (modal) modal.remove();
+    }
+
+    function joinRoom() {
+      const code = document.getElementById('joinCodeInput').value.trim();
+      if (code.length !== 6) {
+        showToast('请输入 6 位邀请码', 'error');
+        return;
+      }
+
+      const deviceName = document.getElementById('deviceNameInput').value.trim();
+      if (!socket) connectSocket();
+
+      const tryJoin = () => {
+        socket.emit('join-room', {
+          code,
+          deviceName: deviceName || undefined
+        }, (response) => {
+          if (response.success) {
+            currentRoom = response.room;
+            roomDevices = response.room.devices;
+            closeJoinDialog();
+            enterRoom();
+            showToast('已加入工作空间', 'success');
+          } else {
+            showToast(response.error, 'error');
+          }
+        });
+      };
+
+      if (socket.connected) {
+        tryJoin();
+      } else {
+        socket.on('connect', tryJoin);
+      }
+    }
+
+    function enterRoom() {
+      document.getElementById('welcomeScreen').style.display = 'none';
+      document.getElementById('roomScreen').style.display = 'flex';
+      document.getElementById('roomNameDisplay').textContent = currentRoom.name;
+      document.getElementById('roomCodeDisplay').textContent = currentRoom.code;
+
+      updateDeviceList();
+      loadQRCode();
+
+      // Render existing messages
+      currentRoom.messages.forEach(msg => addMessageToUI(msg, false));
+
+      // Focus text input
+      document.getElementById('textInput').focus();
+
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    function leaveRoom() {
+      if (confirm('确定要离开工作空间吗？')) {
+        if (socket) socket.disconnect();
+        location.reload();
+      }
+    }
+
+    // ====================================================
+    // Device list
+    // ====================================================
+    function updateDeviceList() {
+      const list = document.getElementById('deviceList');
+      const count = document.getElementById('deviceCount');
+      count.textContent = roomDevices.length;
+
+      list.innerHTML = roomDevices.map(device => {
+        const isMe = device.id === mySocketId;
+        const icon = getDeviceIcon(device.os);
+        const osClass = device.os.toLowerCase().replace(/\s/g, '');
+
+        return `
+          <div class="device-item">
+            <div class="device-icon ${osClass}">${icon}</div>
+            <div class="device-info">
+              <div class="device-name-label">${escapeHtml(device.name)}${isMe ? ' (我)' : ''}</div>
+              <div class="device-os">${device.os} · ${device.type === 'phone' ? '手机' : '桌面'}</div>
+            </div>
+            <div class="device-status"></div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function getDeviceIcon(os) {
+      const icons = {
+        'iOS': '📱',
+        'Android': '📱',
+        'macOS': '💻',
+        'Windows': '🖥️',
+        'Linux': '🐧'
+      };
+      return icons[os] || '📟';
+    }
+
+    // ====================================================
+    // Messages
+    // ====================================================
+    function addMessageToUI(msg, scroll = true) {
+      const area = document.getElementById('messagesArea');
+      const empty = document.getElementById('emptyState');
+      if (empty) empty.style.display = 'none';
+
+      const div = document.createElement('div');
+
+      if (msg.type === 'system') {
+        div.className = 'message message-system';
+        div.textContent = msg.content;
+      } else {
+        const isSelf = msg.senderId === mySocketId;
+        div.className = `message ${isSelf ? 'message-self' : 'message-other'}`;
+
+        if (msg.type === 'text') {
+          div.innerHTML = `
+            <div class="message-bubble">
+              <button class="copy-btn" onclick="copyText('${escapeAttr(msg.content)}')" title="复制">📄</button>
+              <div class="message-sender">${escapeHtml(msg.sender)}</div>
+              <div class="message-text">${escapeHtml(msg.content)}</div>
+              <div class="message-time">${formatTime(msg.timestamp)}</div>
+            </div>
+          `;
+        } else if (msg.type === 'clipboard') {
+          div.innerHTML = `
+            <div class="message-bubble">
+              <button class="copy-btn" onclick="copyText('${escapeAttr(msg.content)}')" title="复制">📄</button>
+              <div class="message-sender">${escapeHtml(msg.sender)}</div>
+              <div class="clipboard-badge">📋 剪贴板</div>
+              <div class="message-text">${escapeHtml(msg.content)}</div>
+              <div class="message-time">${formatTime(msg.timestamp)}</div>
+            </div>
+          `;
+        } else if (msg.type === 'file') {
+          const f = msg.file;
+          const isImage = f.mimetype && f.mimetype.startsWith('image/');
+
+          if (isImage) {
+            div.innerHTML = `
+              <div class="message-bubble">
+                <div class="message-sender">${escapeHtml(msg.sender)}</div>
+                <div class="image-preview-wrapper" onclick="openLightbox('${escapeAttr(f.url)}', '${escapeAttr(f.originalName)}')">
+                  <img class="image-thumbnail" src="${f.url}" alt="${escapeAttr(f.originalName)}" loading="lazy">
+                  <div class="image-zoom-hint"><span>点击查看原图</span></div>
+                </div>
+                <div class="image-file-info">
+                  <span>${escapeHtml(f.originalName)} · ${formatSize(f.size)}</span>
+                  <a href="${f.url}" download="${escapeAttr(f.originalName)}" title="下载原图" onclick="event.stopPropagation()">⬇ 下载</a>
+                </div>
+                <div class="message-time">${formatTime(msg.timestamp)}</div>
+              </div>
+            `;
+          } else {
+            div.innerHTML = `
+              <div class="message-bubble">
+                <div class="message-sender">${escapeHtml(msg.sender)}</div>
+                <a href="${f.url}" download="${escapeAttr(f.originalName)}" style="text-decoration:none; color:inherit;">
+                  <div class="file-card">
+                    <div class="file-icon-box">${getFileIcon(f.mimetype)}</div>
+                    <div class="file-info">
+                      <div class="file-name">${escapeHtml(f.originalName)}</div>
+                      <div class="file-size">${formatSize(f.size)}</div>
+                    </div>
+                    <div class="file-download-icon">⬇</div>
+                  </div>
+                </a>
+                <div class="message-time">${formatTime(msg.timestamp)}</div>
+              </div>
+            `;
+          }
+        }
+      }
+
+      area.appendChild(div);
+
+      if (scroll) {
+        requestAnimationFrame(() => {
+          area.scrollTop = area.scrollHeight;
+        });
+      }
+    }
+
+    // ====================================================
+    // Sending
+    // ====================================================
+    function sendText() {
+      const input = document.getElementById('textInput');
+      const content = input.value.trim();
+      if (!content || !socket || !currentRoom) return;
+
+      socket.emit('send-text', { content });
+      input.value = '';
+      input.style.height = 'auto';
+      input.focus();
+    }
+
+    function handleKeyDown(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendText();
+      }
+
+      // Auto-resize textarea
+      requestAnimationFrame(() => {
+        const input = e.target;
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+      });
+    }
+
+    async function sendClipboard() {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text.trim()) {
+          socket.emit('send-clipboard', { content: text });
+          showToast('剪贴板内容已发送', 'success');
+        } else {
+          showToast('剪贴板为空', 'info');
+        }
+      } catch (err) {
+        showToast('无法读取剪贴板（请允许权限）', 'error');
+      }
+    }
+
+    function triggerFileUpload() {
+      document.getElementById('fileInput').click();
+    }
+
+    async function handleFileSelect(e) {
+      const files = e.target.files;
+      if (!files.length) return;
+
+      for (const file of files) {
+        await uploadFile(file);
+      }
+
+      e.target.value = '';
+    }
+
+    async function uploadFile(file) {
+      if (!currentRoom) return;
+
+      const progress = document.getElementById('uploadProgress');
+      const progressFill = document.getElementById('progressBarFill');
+      const progressText = document.getElementById('progressText');
+
+      progress.classList.add('active');
+      progressText.textContent = `上传中: ${file.name}`;
+      progressFill.style.width = '0%';
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `/api/upload/${currentRoom.id}`);
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            progressFill.style.width = pct + '%';
+            progressText.textContent = `上传中: ${pct}%`;
+          }
+        };
+
+        xhr.onload = () => {
+          progress.classList.remove('active');
+          if (xhr.status === 200) {
+            const fileInfo = JSON.parse(xhr.responseText);
+            socket.emit('send-file', fileInfo);
+            showToast('文件已发送', 'success');
+          } else {
+            showToast('上传失败', 'error');
+          }
+        };
+
+        xhr.onerror = () => {
+          progress.classList.remove('active');
+          showToast('上传失败', 'error');
+        };
+
+        xhr.send(formData);
+      } catch (err) {
+        progress.classList.remove('active');
+        showToast('上传失败: ' + err.message, 'error');
+      }
+    }
+
+    // ====================================================
+    // Drag & Drop
+    // ====================================================
+    let dragCounter = 0;
+
+    document.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragCounter++;
+      if (currentRoom) {
+        document.getElementById('dropOverlay').classList.add('active');
+      }
+    });
+
+    document.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter === 0) {
+        document.getElementById('dropOverlay').classList.remove('active');
+      }
+    });
+
+    document.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+
+    document.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      document.getElementById('dropOverlay').classList.remove('active');
+
+      if (!currentRoom) return;
+
+      const files = e.dataTransfer.files;
+      for (const file of files) {
+        await uploadFile(file);
+      }
+    });
+
+    // ====================================================
+    // QR Code
+    // ====================================================
+    async function loadQRCode() {
+      if (!currentRoom) return;
+      try {
+        const res = await fetch(`/api/qrcode/${currentRoom.code}`);
+        const data = await res.json();
+        document.getElementById('qrCodeContainer').innerHTML =
+          `<img src="${data.qr}" alt="QR Code" title="${data.url}">`;
+      } catch (err) {
+        console.error('QR code failed:', err);
+      }
+    }
+
+    function showQRCode() {
+      if (!currentRoom) return;
+
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.id = 'qrModal';
+      overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+      overlay.innerHTML = `
+        <div class="modal" style="text-align: center;">
+          <h2>邀请其他设备加入</h2>
+          <p>使用其他设备扫描二维码，或输入邀请码 <strong style="color: var(--accent-light);">${currentRoom.code}</strong></p>
+          <div id="qrModalContent" style="margin: 20px 0;">
+            <div style="color: var(--text-muted);">加载中...</div>
+          </div>
+          <div class="modal-actions" style="justify-content: center;">
+            <button class="btn btn-primary" onclick="copyRoomCode(); document.getElementById('qrModal').remove();">复制邀请码</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      fetch(`/api/qrcode/${currentRoom.code}`)
+        .then(r => r.json())
+        .then(data => {
+          document.getElementById('qrModalContent').innerHTML =
+            `<img src="${data.qr}" style="width: 200px; border-radius: 12px; border: 2px solid var(--border);">
+             <div style="margin-top: 12px; font-size: 13px; color: var(--text-muted);">局域网地址: ${data.url}</div>`;
+        });
+    }
+
+    // ====================================================
+    // Sidebar toggle
+    // ====================================================
+    function toggleSidebar() {
+      sidebarOpen = !sidebarOpen;
+      document.getElementById('devicePanel').classList.toggle('open', sidebarOpen);
+      document.getElementById('sidebarBackdrop').classList.toggle('open', sidebarOpen);
+    }
+
+    // ====================================================
+    // Utilities
+    // ====================================================
+    function copyRoomCode() {
+      if (!currentRoom) return;
+      navigator.clipboard.writeText(currentRoom.code).then(() => {
+        showToast('邀请码已复制: ' + currentRoom.code, 'success');
+      });
+    }
+
+    function copyText(text) {
+      // Decode escaped content
+      const decoded = text.replace(/\\n/g, '\n').replace(/\\'/g, "'").replace(/\\"/g, '"');
+      navigator.clipboard.writeText(decoded).then(() => {
+        showToast('已复制到剪贴板', 'success');
+      });
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function escapeAttr(str) {
+      return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
+    }
+
+    function formatTime(ts) {
+      const d = new Date(ts);
+      return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatSize(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    function getFileIcon(mimetype) {
+      if (!mimetype) return '📄';
+      if (mimetype.startsWith('image/')) return '🖼️';
+      if (mimetype.startsWith('video/')) return '🎬';
+      if (mimetype.startsWith('audio/')) return '🎵';
+      if (mimetype.includes('pdf')) return '📕';
+      if (mimetype.includes('zip') || mimetype.includes('rar') || mimetype.includes('7z')) return '📦';
+      if (mimetype.includes('word') || mimetype.includes('document')) return '📝';
+      if (mimetype.includes('sheet') || mimetype.includes('excel')) return '📊';
+      if (mimetype.includes('presentation') || mimetype.includes('powerpoint')) return '📽️';
+      if (mimetype.startsWith('text/')) return '📃';
+      return '📄';
+    }
+
+    // ====================================================
+    // Lightbox - Image viewer
+    // ====================================================
+    function openLightbox(url, filename) {
+      // Remove existing lightbox if any
+      closeLightbox();
+
+      const overlay = document.createElement('div');
+      overlay.className = 'lightbox-overlay';
+      overlay.id = 'lightboxOverlay';
+      overlay.onclick = (e) => {
+        if (e.target === overlay) closeLightbox();
+      };
+
+      overlay.innerHTML = `
+        <button class="lightbox-close" onclick="closeLightbox()" title="关闭">✕</button>
+        <div class="lightbox-image-container" onclick="event.stopPropagation()">
+          <img class="lightbox-image" src="${url}" alt="${filename}">
+        </div>
+        <div class="lightbox-filename">${filename}</div>
+        <div class="lightbox-toolbar">
+          <a class="lightbox-btn" href="${url}" download="${filename}" onclick="event.stopPropagation()">
+            ⬇ 下载原图
+          </a>
+          <button class="lightbox-btn" onclick="openInNewTab('${url}')">
+            ↗ 新标签页打开
+          </button>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      // ESC to close
+      document.addEventListener('keydown', lightboxKeyHandler);
+    }
+
+    function closeLightbox() {
+      const overlay = document.getElementById('lightboxOverlay');
+      if (overlay) overlay.remove();
+      document.removeEventListener('keydown', lightboxKeyHandler);
+    }
+
+    function lightboxKeyHandler(e) {
+      if (e.key === 'Escape') closeLightbox();
+    }
+
+    function openInNewTab(url) {
+      window.open(url, '_blank');
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const icons = { success: '✓', error: '✕', info: 'ℹ' };
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `<span>${icons[type] || 'ℹ'}</span> ${escapeHtml(message)}`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(20px)';
+        toast.style.transition = 'all 0.3s';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // ====================================================
+    // Init
+    // ====================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      connectSocket();
+
+      // Auto-join from URL parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('join')) {
+        showJoinDialog();
+      }
+
+      // Auto-detect device name
+      const ua = navigator.userAgent;
+      let defaultName = '我的设备';
+      if (/iPhone/.test(ua)) defaultName = '我的 iPhone';
+      else if (/iPad/.test(ua)) defaultName = '我的 iPad';
+      else if (/Android/.test(ua)) defaultName = '我的 Android';
+      else if (/Macintosh/.test(ua)) defaultName = '我的 Mac';
+      else if (/Windows/.test(ua)) defaultName = '我的 Windows';
+
+      document.getElementById('deviceNameInput').placeholder = `设备名称（默认: ${defaultName}）`;
+
+      // Paste handler for images
+      document.addEventListener('paste', async (e) => {
+        if (!currentRoom) return;
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        for (const item of items) {
+          if (item.kind === 'file') {
+            e.preventDefault();
+            const file = item.getAsFile();
+            if (file) await uploadFile(file);
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>

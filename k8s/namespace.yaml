@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: linkroom
+  labels:
+    app.kubernetes.io/name: linkroom
+    app.kubernetes.io/part-of: linkroom

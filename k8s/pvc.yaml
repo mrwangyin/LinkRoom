@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: linkroom-uploads-pvc
+  namespace: linkroom
+  labels:
+    app.kubernetes.io/name: linkroom
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      # 按需调整容量，默认 5Gi
+      storage: 5Gi
+  # 如果集群有指定 StorageClass，取消下面注释并填写
+  # storageClassName: your-storage-class
