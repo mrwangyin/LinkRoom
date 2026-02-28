@@ -13,7 +13,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
   maxHttpBufferSize: 100 * 1024 * 1024, // 100MB
   cors: { origin: '*' },
-  path: '/linkroom/socket.io'
+  path: '/socket.io'
 });
 
 const PORT = process.env.PORT || 3000;
