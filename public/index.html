@@ -1278,13 +1278,13 @@
       //   reconnectionDelay: 1000
       // });
 
-      const socketUrl = window.location.origin + '/linkroom';
+      const socketUrl = window.location.origin;
       socket = io(socketUrl, {
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 10,
         reconnectionDelay: 1000,
-        path: '/linkroom/socket.io'
+        path: '/socket.io'
       });
 
       socket.on('connect', () => {
