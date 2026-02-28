@@ -136,8 +136,11 @@ app.post('/api/upload/:roomId', upload.single('file'), (req, res) => {
 // QR code endpoint
 app.get('/api/qrcode/:code', async (req, res) => {
   try {
-    const localIP = getLocalIP();
-    const url = `http://${localIP}:${PORT}?join=${req.params.code}`;
+     // 🌟 核心修改：优先读取环境变量 DOMAIN，无则 fallback 到本地IP
+    const domain = process.env.DOMAIN || `${getLocalIP()}:${PORT}`;
+    // 🌟 可选：如果域名配置了 HTTPS，将 http 改为 https
+    const protocol = process.env.PROTOCOL || 'http';
+    const url = `${protocol}://${domain}?join=${req.params.code}`;
     const qr = await QRCode.toDataURL(url, {
       width: 256,
       margin: 2,
@@ -383,6 +386,9 @@ io.on('connection', (socket) => {
 // ============================================================
 server.listen(PORT, '0.0.0.0', () => {
   const localIP = getLocalIP();
+  // 🌟 新增：读取环境变量域名
+  const domain = process.env.DOMAIN || `${localIP}:${PORT}`;
+  const protocol = process.env.PROTOCOL || 'http';
   console.log('');
   console.log('  ╔══════════════════════════════════════════╗');
   console.log('  ║                                          ║');
@@ -390,7 +396,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('  ║         跨设备实时共享工作空间            ║');
   console.log('  ║                                          ║');
   console.log(`  ║  本机访问: http://localhost:${PORT}         ║`);
-  console.log(`  ║  局域网:   http://${localIP}:${PORT}   ║`);
+  console.log(`  ║  外网访问:   ${protocol}://${domain}   ║`); // 🌟 替换为域名
   console.log('  ║                                          ║');
   console.log('  ║  同一网络下的设备可通过局域网地址访问    ║');
   console.log('  ║                                          ║');
